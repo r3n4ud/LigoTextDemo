@@ -1,0 +1,7 @@
+bin
+gen
+doc/html
+.classpath
+.project
+.checkstyle
+local.properties
