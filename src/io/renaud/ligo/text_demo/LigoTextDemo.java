@@ -13,6 +13,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class LigoTextDemo extends Activity {
 
@@ -35,6 +36,7 @@ public class LigoTextDemo extends Activity {
                             serviceIntent.putExtra(UsbManager.EXTRA_ACCESSORY,
                                     getIntent().getParcelableExtra(UsbManager.EXTRA_ACCESSORY));
                             startService(serviceIntent);
+                            Toast.makeText(context, "The accessory has been disconnected", Toast.LENGTH_SHORT).show();
                             finish();
                         }
                     } else if (action.equals(Constants.ACTION_READ_DATA)) {
