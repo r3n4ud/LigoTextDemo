@@ -1,37 +1,38 @@
 package io.renaud.ligo.text_demo;
 
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.io.OutputStream;
-import java.io.InputStream;
-
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.usb.UsbAccessory;
 import android.hardware.usb.UsbManager;
 import android.os.AsyncTask;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
-import android.os.Bundle;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class LigoService extends Service {
-
-    private static final int SERVER_PORT = 10000;
 
     private UsbManager mUsbManager;
     private UsbAccessory mAccessory = null;
     private ParcelFileDescriptor mParcelFileDescriptor = null;
-    private ServerSocket mServerSocket = null;
     private FileInputStream mInputStream = null;
-    private FileOutputStream mOutputStream = null;
-
-    private Thread mThread = null;
+    private BufferedOutputStream mOutputStream = null;
+    private ExecutorService mPool;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -41,7 +42,11 @@ public class LigoService extends Service {
     @Override
     public void onCreate() {
         Log.d(Constants.LOGTAG, "LigoService.onCreate()");
+
         mUsbManager = (UsbManager) getSystemService(Context.USB_SERVICE);
+        // Use a custom ThreadPoolExecutor to reduce the KeepAliveTime of the threads (default to 60
+        // seconds using Executors.newCachedThreadPool)???
+        mPool = Executors.newCachedThreadPool();
     }
 
     @Override
@@ -74,15 +79,12 @@ public class LigoService extends Service {
 
                 Log.i(Constants.LOGTAG, "LigoService: processing ACTION_WRITE_DATA");
                 if (mOutputStream != null) {
+
                     Bundle bundle = intent.getExtras();
-                    byte[] outputBuf = bundle.getByteArray("output_buf");
-                    try {
-                        mOutputStream.write(outputBuf);
-                    } catch(IOException e) {
-                        Log.e(Constants.LOGTAG, e.getMessage());
-                    }
+                    mPool.execute(new UsbWriter(mOutputStream, bundle.getByteArray("output_buf")));
+
                 } else {
-                    Log.e(Constants.LOGTAG, "LigoService: the output stream is null!");
+                     Log.e(Constants.LOGTAG, "LigoService: the output stream is null!");
                 }
             }
         }
@@ -99,12 +101,12 @@ public class LigoService extends Service {
             Log.d(Constants.LOGTAG, "LigoService: Accessory successfully opened");
 
             FileDescriptor fd = mParcelFileDescriptor.getFileDescriptor();
-            mInputStream  = new FileInputStream(fd);
-            mOutputStream = new FileOutputStream(fd);
 
-            Runnable readRunnable = new ReadRunnable(mInputStream);
-            mThread = new Thread(readRunnable);
-            mThread.start();
+            mInputStream = new FileInputStream(fd);
+            mOutputStream =
+                    new BufferedOutputStream(new FileOutputStream(fd));
+
+            mPool.execute(new UsbReader(mInputStream));
 
         } else {
             Log.e(Constants.LOGTAG, "LigoService: Failed to open the accessory");
@@ -114,8 +116,9 @@ public class LigoService extends Service {
     private void closeAccessory() {
         Log.d(Constants.LOGTAG, "LigoService.closeAccessory()");
 
-        if (mAccessory != null && mThread != null) {
-            mThread.stop();
+        mPool.shutdown();
+
+        if (mAccessory != null) {
 
             try {
                 mParcelFileDescriptor.close();
@@ -126,7 +129,6 @@ public class LigoService extends Service {
             mParcelFileDescriptor = null;
             mOutputStream         = null;
             mInputStream          = null;
-            mThread               = null;
         }
     }
 
@@ -138,27 +140,40 @@ public class LigoService extends Service {
         }
     }
 
-    private class ReadRunnable implements Runnable {
+    private class UsbWriter implements Runnable {
+        private final BufferedOutputStream mOutput;
+        private final byte[] mData;
 
-        private static final int BUFFER_SIZE = 1024;
-        private final FileInputStream mInputStream;
+        public UsbWriter (BufferedOutputStream output, byte[] data) {
+            mOutput = output;
+            mData = data;
+        }
 
-        public ReadRunnable(FileInputStream inputStream) {
-            mInputStream  = inputStream;
+        public void run () {
+            try {
+                mOutput.write(mData, 0, mData.length);
+                mOutput.flush();
+            } catch (IOException e) {
+                Log.e(Constants.LOGTAG, "UsbWriter IOException");
+                Log.e(Constants.LOGTAG, e.getMessage());
+            }
+        }
+    }
+
+    private class UsbReader implements Runnable {
+        private FileInputStream mInput;
+        private static final int BUFFER_SIZE = 8192;
+
+        public UsbReader(FileInputStream input) {
+            mInput = input;
         }
 
         public void run() {
-            Log.d(Constants.LOGTAG, "ReadRunnable −− run");
 
             byte[] inputBuf = new byte[BUFFER_SIZE];
-            int n;
-            while (true) {
+            try {
+                while (mInput.read(inputBuf) != -1) {
 
-                try {
-                    n = mInputStream.read(inputBuf);
-                    // if (n < 0) {
-                    //     Log.d(Constants.LOGTAG, "End of file reached");
-                    // }
                     Log.d(Constants.LOGTAG, "Read some bytes");
 
                     Intent readIntent = new Intent(Constants.ACTION_READ_DATA);
@@ -167,13 +182,15 @@ public class LigoService extends Service {
                     readIntent.putExtras(bundle);
                     sendBroadcast(readIntent);
 
-                } catch (IOException e) {
-                    Log.e(Constants.LOGTAG, "ReadRunnable −− IOException");
-                    break;
+                    // blank the byte array
+                    inputBuf = new byte[BUFFER_SIZE];
                 }
-            }
+            } catch (IOException e) {
+                Log.e(Constants.LOGTAG, "UsbReader IOException");
+                Log.e(Constants.LOGTAG, e.getMessage());
+             }
 
-        } // run()
-    } // ReadRunnable
+        }
+    }
 
 }
