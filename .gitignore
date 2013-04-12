@@ -5,3 +5,5 @@ doc/html
 .project
 .checkstyle
 local.properties
+.gradle
+build

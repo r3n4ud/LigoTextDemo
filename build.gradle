@@ -1,0 +1,27 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    classpath 'com.android.tools.build:gradle:0.3'
+  }
+}
+apply plugin: 'android'
+
+android {
+  compileSdkVersion 15
+  testBuildType 'debug'
+
+  defaultConfig {
+    versionCode = 1
+    versionName = '1.0'
+    minSdkVersion 12
+    targetSdkVersion 15
+  }
+
+  buildTypes {
+    debug {
+      packageNameSuffix = '.debug'
+    }
+  }
+}
