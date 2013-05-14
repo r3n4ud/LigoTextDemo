@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">LigoTextDemo</string>
-    <string name="disconnected">Accessory disconnected</string>
-    <string name="send">Send</string>
+    <string name="disconnected">Accessoire déconnecté</string>
+    <string name="send">Envoyer</string>
 </resources>
