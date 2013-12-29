@@ -3,14 +3,14 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath 'com.android.tools.build:gradle:0.6.3'
+    classpath 'com.android.tools.build:gradle:0.7.3'
   }
 }
 apply plugin: 'android'
 
 android {
-  buildToolsVersion '19'
-  compileSdkVersion 15
+  buildToolsVersion '19.0.1'
+  compileSdkVersion 'android-15'
   testBuildType 'debug'
 
   defaultConfig {
