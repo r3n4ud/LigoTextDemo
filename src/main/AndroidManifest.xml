@@ -17,8 +17,6 @@
               android:launchMode="singleInstance">
 
       <intent-filter>
-        <action android:name="android.intent.action.MAIN" />
-        <category android:name="android.intent.category.LAUNCHER" />
         <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
         <action android:name="android.hardware.usb.action.USB_ACCESSORY_DETACHED" />
         <action android:name="io.renaud.ligo.text_demo.action.READ_DATA" />
