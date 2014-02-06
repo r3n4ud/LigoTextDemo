@@ -13,13 +13,6 @@ android {
   compileSdkVersion 'android-15'
   testBuildType 'debug'
 
-  defaultConfig {
-    versionCode = 1
-    versionName = '1.0'
-    minSdkVersion 12
-    targetSdkVersion 15
-  }
-
   buildTypes {
     debug {
       packageNameSuffix = '.debug'
